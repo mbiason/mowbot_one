@@ -19,6 +19,21 @@ Note that each directory currently has at least one file in it to ensure that gi
 
 `sudo apt install ros-humble-navigation2`
 
-`sudo apt install ros-humble-cartographer`
+`sudo apt install ros-humble-rtabmap-ros`
 
-`sudo apt install ros-humble-cartographer-ros`
+`sudo apt install ros-humble-librealsense2*`
+
+`sudo apt install ros-humble-realsense2-*`
+
+# Realsense Drivers
+Ref: https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md#installing-the-packages
+
+`sudo mkdir -p /etc/apt/keyrings`
+`curl -sSf https://librealsense.intel.com/Debian/librealsense.pgp | sudo tee /etc/apt/keyrings/librealsense.pgp > /dev/null`
+`echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.intel.com/Debian/apt-repo jammy main" | \`
+`sudo tee /etc/apt/sources.list.d/librealsense.list` in prompt
+`sudo apt-get update`
+`sudo apt-get install librealsense2-dkms`
+`sudo apt-get install librealsense2-utils`
+`sudo apt-get install librealsense2-dev`
+`sudo apt-get install librealsense2-dbg`
