@@ -20,17 +20,20 @@ def generate_launch_description():
     localization = LaunchConfiguration('localization')
 
     parameters={
-          'frame_id':'camera_link',
-          'subscribe_stereo':True,
-          'subscribe_odom_info':True,
-          'wait_imu_to_init':True}
+        'frame_id':'base_footprint',
+        'subscribe_stereo':True,
+        'subscribe_odom_info':True,
+        'wait_imu_to_init':True,
+        'Grid/MaxObstacleHeight':'1'
+    }
 
     remappings=[
-          ('imu', '/imu/data'),
-          ('left/image_rect', '/camera/infra1/image_rect_raw'),
-          ('left/camera_info', '/camera/infra1/camera_info'),
-          ('right/image_rect', '/camera/infra2/image_rect_raw'),
-          ('right/camera_info', '/camera/infra2/camera_info')]
+        ('imu', '/imu/data'),
+        ('left/image_rect', '/camera/infra1/image_rect_raw'),
+        ('left/camera_info', '/camera/infra1/camera_info'),
+        ('right/image_rect', '/camera/infra2/image_rect_raw'),
+        ('right/camera_info', '/camera/infra2/camera_info')
+    ]
 
     return LaunchDescription([
 

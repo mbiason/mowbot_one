@@ -1,18 +1,22 @@
 <?xml version="1.0"?>
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro"  name="robot">
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot">
 
     <xacro:arg name="use_ros2_control" default="true"/>
     <xacro:arg name="sim_mode" default="false"/>
-
+    <xacro:arg name="use_nominal_extrinsics" default="false" />
+    
     <xacro:include filename="robot_core.xacro" />
+    <xacro:include filename="$(find realsense2_description)/urdf/_d435i.urdf.xacro"/>
 
+    <xacro:sensor_d435i parent="base_link" use_nominal_extrinsics="$(arg use_nominal_extrinsics)">
+        <origin xyz="${(base_length/2) - 0.01} 0 ${(-base_height/2) + 0.08}" rpy="0 0.15 0"/>
+    </xacro:sensor_d435i>
+    
     <xacro:if value="$(arg use_ros2_control)">
         <xacro:include filename="ros2_control.xacro" />
     </xacro:if>
     <xacro:unless value="$(arg use_ros2_control)">
         <xacro:include filename="gazebo_control.xacro" />
     </xacro:unless>
-    <xacro:include filename="camera.xacro" />
-    <!-- <xacro:include filename="lidar.xacro" /> -->
-    
+
 </robot>

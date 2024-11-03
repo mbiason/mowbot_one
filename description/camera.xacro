@@ -1,9 +1,0 @@
-<?xml version="1.0"?>
-<robot name="realsense2_camera" xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <xacro:arg name="use_nominal_extrinsics" default="false" />
-  <xacro:include filename="$(find realsense2_description)/urdf/_d435i.urdf.xacro"/>
-
-  <xacro:sensor_d435i parent="chassis" use_nominal_extrinsics="$(arg use_nominal_extrinsics)">
-    <origin xyz="${chassis_length - 0.01} 0 ${chassis_height - 0.28}" rpy="0 0.15 0"/>
-  </xacro:sensor_d435i>
-</robot>
