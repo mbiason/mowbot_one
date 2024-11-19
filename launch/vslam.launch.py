@@ -24,7 +24,10 @@ def generate_launch_description():
         'subscribe_stereo':True,
         'subscribe_odom_info':True,
         'wait_imu_to_init':True,
-        'Grid/MaxObstacleHeight':'1'
+        'queue_size': 200,
+        'use_action_for_goal': True,
+        'Grid/MaxObstacleHeight':'1',
+        'Rtabmap/DetectionRate': '2',
     }
 
     remappings=[
@@ -50,13 +53,16 @@ def generate_launch_description():
             PythonLaunchDescriptionSource([os.path.join(
                 get_package_share_directory('realsense2_camera'), 'launch'),
                 '/rs_launch.py']),
-                launch_arguments={'camera_namespace': '',
-                                  'enable_gyro': 'true',
-                                  'enable_accel': 'true',
-                                  'unite_imu_method': '2',
-                                  'enable_infra1': 'true',
-                                  'enable_infra2': 'true',
-                                  'enable_sync': 'true'}.items(),
+                launch_arguments={
+                    'camera_namespace': '',
+                    'enable_gyro': 'true',
+                    'enable_accel': 'true',
+                    'unite_imu_method': '2',
+                    'enable_infra1': 'true',
+                    'enable_infra2': 'true',
+                    'enable_sync': 'true',
+                    'json_file_path': '/home/mbiason/ros2_ws/src/mowbot_one/config/camera_high_accuracy.json',
+                    }.items(),
         ),
 
         Node(
