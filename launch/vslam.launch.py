@@ -20,14 +20,14 @@ def generate_launch_description():
     localization = LaunchConfiguration('localization')
 
     parameters={
-        'frame_id':'base_footprint',
-        'subscribe_stereo':True,
-        'subscribe_odom_info':True,
-        'wait_imu_to_init':True,
+        'frame_id': 'base_footprint',
+        'subscribe_stereo': True,
+        'subscribe_odom_info': True,
+        'wait_imu_to_init': True,
         'queue_size': 200,
         'use_action_for_goal': True,
-        'Grid/MaxObstacleHeight':'1',
-        'Rtabmap/DetectionRate': '2',
+        'Grid/MaxObstacleHeight': '1',
+        'Rtabmap/DetectionRate': '30',
     }
 
     remappings=[
@@ -42,7 +42,7 @@ def generate_launch_description():
 
         # Launch arguments
         DeclareLaunchArgument(
-            'localization', default_value='false',
+            'localization', default_value='true',
             description='Launch in localization mode.'),
 
         #Hack to disable IR emitter
@@ -83,15 +83,23 @@ def generate_launch_description():
             condition=IfCondition(localization),
             package='rtabmap_slam', executable='rtabmap', output='screen',
             parameters=[parameters,
-              {'Mem/IncrementalMemory':'False',
-               'Mem/InitWMWithAllNodes':'True'}],
+              {'Mem/IncrementalMemory': 'False',
+               'Mem/InitWMWithAllNodes': 'True'}],
             remappings=remappings),
 
-        Node(
-            package='rtabmap_viz', executable='rtabmap_viz', output='screen',
-            parameters=[parameters],
-            remappings=remappings),
-                
+        # Node(
+        #     package='rtabmap_viz', executable='rtabmap_viz', output='screen',
+        #     parameters=[parameters],
+        #     remappings=remappings),
+
+        # Launch Rviz
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([os.path.join(
+                get_package_share_directory('nav2_bringup'), 'launch'),
+                '/rviz_launch.py']),
+                launch_arguments={}.items(),
+        ),
+
         # Compute quaternion of the IMU
         Node(
             package='imu_filter_madgwick', executable='imu_filter_madgwick_node', output='screen',
