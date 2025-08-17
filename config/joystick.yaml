@@ -22,8 +22,9 @@ teleop_node:
 
     # publish_stamped_twist: true
 
-    # 6 and 7 for xbox left and right buttons
     enable_button: 0
+    # enable_button: 6 # xbox left
     enable_turbo_button: 1
+    # enable_turbo_button: 7 # xbox right
 
     require_enable_button: true
