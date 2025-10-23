@@ -58,7 +58,7 @@ def generate_launch_description():
     robot_state_pub_node = Node(
         package="robot_state_publisher",
         executable="robot_state_publisher",
-        parameters=[robot_description],
+        parameters=[robot_description, {"use_tf_static": True}],
         remappings=[],
         output="both",
     )

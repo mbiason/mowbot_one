@@ -11,6 +11,7 @@ from rclpy.action import ActionClient
 from geometry_msgs.msg import PoseStamped, Quaternion
 from nav2_msgs.action import FollowWaypoints
 import tf2_ros
+from std_msgs.msg import Float32
 
 
 def yaw_from_quat(q: Quaternion) -> float:
@@ -39,9 +40,9 @@ def apply_se2(x, y, yaw, px, py, pyaw):
     return X, Y, YAW
 
 
-class WaypointFollower(Node):
+class AlignedWaypointFollower(Node):
     def __init__(self):
-        super().__init__('waypoint_follower')
+        super().__init__('aligned_waypoint_follower')
 
         # ---- Parameters ----
         self.declare_parameter('waypoint_file', os.path.expanduser('~/waypoints.yaml'))
@@ -63,16 +64,19 @@ class WaypointFollower(Node):
         # ---- Action client ----
         self.client = ActionClient(self, FollowWaypoints, 'follow_waypoints')
 
+        # ---- Yaw correction from reflector node ----
+        self.yaw_correction = 0.0
+        self.got_yaw_correction = True # change to False to enable
+        self.sub_corr = self.create_subscription(Float32, '/reflector/yaw_correction', self._on_corr, 10)
+
         # ---- State machine ----
         self.stage = 0
         self.recorded = []
         self.poses = []
-        self.timer = self.create_timer(1.0, self.tick)
-
-        # ---- Exit flag ----
-        self.done = False
+        self.timer = self.create_timer(0.5, self.tick)
 
         self.get_logger().info(f"Waypoints file: {self.yaml_path}")
+        self.get_logger().info(f"Frames: map='{self.map_frame}', base='{self.base_frame}'")
 
     # ---------- Utils ----------
     def _quat_from_yaml(self, dct) -> Quaternion:
@@ -85,39 +89,42 @@ class WaypointFollower(Node):
         return math.hypot(a.pose.position.x - b.pose.position.x,
                           a.pose.position.y - b.pose.position.y)
 
+    # ---------- Reflector correction ----------
+    def _on_corr(self, msg: Float32):
+        if not self.got_yaw_correction:
+            self.yaw_correction = msg.data
+            self.got_yaw_correction = True
+            self.get_logger().info(f"Received yaw correction: {math.degrees(self.yaw_correction):.2f}°")
+            # unsubscribe after first message
+            self.destroy_subscription(self.sub_corr)
+
     # ---------- Main loop ----------
     def tick(self):
-        if self.done:
-            self.get_logger().info("WaypointFollower complete, stopping spin...")
-            rclpy.get_global_executor().shutdown()  # tells spin() to exit
-            return
-
         if self.stage == 0:
-            if self.client.wait_for_server(timeout_sec=0.5):
-                self.get_logger().info("Connected to follow_waypoints server")
-                self.stage = 1
-            else:
+            if not self.client.wait_for_server(timeout_sec=0.1):
                 self.get_logger().debug('Waiting for follow_waypoints action server...')
                 return
+            if not self.got_yaw_correction:
+                self.get_logger().debug('Waiting for yaw correction from /reflector/yaw_correction...')
+                return
+            self.stage = 1
 
         elif self.stage == 1:
-            # Load recorded waypoints
             try:
                 with open(self.yaml_path, 'r') as f:
                     data = yaml.safe_load(f) or {}
                 self.recorded = data.get('waypoints', [])
                 if not self.recorded:
                     self.get_logger().error('No waypoints in YAML')
-                    self.done = True
+                    self._shutdown()
                     return
                 self.get_logger().info(f"Loaded {len(self.recorded)} recorded waypoint(s).")
                 self.stage = 2
             except Exception as e:
                 self.get_logger().error(f'Failed to load YAML: {e}')
-                self.done = True
+                self._shutdown()
 
         elif self.stage == 2:
-            # Current pose in map (today)
             try:
                 trans = self.tf_buffer.lookup_transform(
                     self.map_frame, self.base_frame, rclpy.time.Time(), timeout=self.tf_timeout
@@ -131,22 +138,22 @@ class WaypointFollower(Node):
             Pn_yaw = yaw_from_quat(trans.transform.rotation)
             self.get_logger().info(f"Current pose: ({Pn_x:.2f}, {Pn_y:.2f}, {math.degrees(Pn_yaw):.1f}°)")
 
-            # First recorded pose (reference)
             wp0 = self.recorded[0]['pose']
             Pr_x = float(wp0['position']['x'])
             Pr_y = float(wp0['position']['y'])
             Pr_q = self._quat_from_yaml(wp0['orientation'])
             Pr_yaw = yaw_from_quat(Pr_q)
 
-            # Compute T = Pn ∘ inv(Pr0)
             c, s = math.cos(Pr_yaw), math.sin(Pr_yaw)
             inv_x = -(c * Pr_x + s * Pr_y)
             inv_y = -(-s * Pr_x + c * Pr_y)
             inv_yaw = -Pr_yaw
             T_x, T_y, T_yaw = apply_se2(Pn_x, Pn_y, Pn_yaw, inv_x, inv_y, inv_yaw)
+
+            T_yaw += self.yaw_correction
+
             self.get_logger().info(f"Alignment: Δx={T_x:.2f}, Δy={T_y:.2f}, Δyaw={math.degrees(T_yaw):.1f}°")
 
-            # Transform all waypoints to today's map
             now = self.get_clock().now().to_msg()
             self.poses = []
             for wp in self.recorded:
@@ -165,7 +172,6 @@ class WaypointFollower(Node):
                 ps.pose.orientation = quat_from_yaw(YAW)
                 self.poses.append(ps)
 
-            # If we're already at the first aligned wp, skip it
             start_now = PoseStamped()
             start_now.header.frame_id = self.map_frame
             start_now.pose.position.x = Pn_x
@@ -177,10 +183,9 @@ class WaypointFollower(Node):
 
             if not self.poses:
                 self.get_logger().warn("No waypoints to send after skipping; exiting.")
-                self.done = True
+                self._shutdown()
                 return
 
-            # Send goal
             goal = FollowWaypoints.Goal()
             goal.poses = self.poses
             self.get_logger().info(f"Sending {len(self.poses)} aligned waypoint(s)...")
@@ -188,16 +193,12 @@ class WaypointFollower(Node):
             fut.add_done_callback(self._on_goal_response)
             self.stage = 3
 
-        elif self.stage == 3:
-            # waiting in callbacks
-            pass
-
     # ---------- Action callbacks ----------
     def _on_goal_response(self, future):
         goal_handle = future.result()
         if not goal_handle.accepted:
             self.get_logger().error('FollowWaypoints goal rejected.')
-            self.done = True
+            self._shutdown()
             return
         self.get_logger().info('Goal accepted. Waiting for result...')
         result_future = goal_handle.get_result_async()
@@ -213,19 +214,22 @@ class WaypointFollower(Node):
     def _on_result(self, future):
         result = future.result()
         self.get_logger().info(f'FollowWaypoints finished, result code={result.result}')
-        self.done = True
+        self._shutdown()
+
+    # ---------- Clean shutdown ----------
+    def _shutdown(self):
+        self.destroy_node()
+        rclpy.try_shutdown()
 
 
 def main():
     rclpy.init()
-    node = WaypointFollower()
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
-    finally:
+    node = AlignedWaypointFollower()
+    rclpy.spin(node)
+    # after spin exits, just ensure cleanup
+    if rclpy.ok():
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == '__main__':

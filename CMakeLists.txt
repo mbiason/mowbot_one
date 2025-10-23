@@ -23,11 +23,11 @@ find_package(ament_cmake REQUIRED)
 
 # Install Python executables
 install(PROGRAMS
-  scripts/calc_path.py
+  scripts/aligned_waypoint_follower.py
   scripts/publish.py
-  scripts/robot_navigator.py
+  scripts/reflector_yaw.py
   scripts/waypoint_follower.py
-  scripts/nav_through_poses.py
+  scripts/waypoint_recorder.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

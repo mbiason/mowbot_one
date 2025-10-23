@@ -46,6 +46,7 @@ def generate_launch_description():
                     'enable_infra1': 'true',
                     'enable_infra2': 'true',
                     'enable_sync': 'true',
+                    'pointcloud.enable': 'true',
                     'json_file_path': '/home/mbiason/ros2_ws/src/mowbot_one/config/camera_high_accuracy.json',
                     }.items(),
         ),
